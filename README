@@ -1,0 +1,7 @@
+Tiva TM4C version of blipduino.
+
+Read blips on a powermeter with a photo-diode.
+Use ADC comparator to detect blips.
+Send data to master node using nRF24L01+.
+
+Licence: GPL v2+.
