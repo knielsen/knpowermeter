@@ -10,6 +10,7 @@
 #include "inc/hw_ssi.h"
 #include "inc/hw_uart.h"
 #include "inc/hw_timer.h"
+#include "inc/hw_adc.h"
 #include "driverlib/gpio.h"
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
@@ -17,6 +18,7 @@
 #include "driverlib/timer.h"
 #include "driverlib/ssi.h"
 #include "driverlib/systick.h"
+#include "driverlib/adc.h"
 
 #include "nrf24l01p.h"
 
@@ -519,6 +521,35 @@ nrf_get_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 }
 
 
+/* ADC */
+static void
+config_adc(void)
+{
+  /* Enable ADC on PD2 (AIN5). */
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+  ROM_GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
+  ROM_ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
+  ROM_ADCSequenceStepConfigure(ADC0_BASE, 3, 0,
+                               ADC_CTL_CH5 | ADC_CTL_IE | ADC_CTL_END);
+  ROM_ADCSequenceEnable(ADC0_BASE, 3);
+  ROM_ADCIntClear(ADC0_BASE, 3);
+}
+
+static unsigned long
+read_adc(void)
+{
+  unsigned long val;
+
+  ROM_ADCProcessorTrigger(ADC0_BASE, 3);
+  while(!ROM_ADCIntStatus(ADC0_BASE, 3, false))
+    ;
+  ROM_ADCIntClear(ADC0_BASE, 3);
+  ROM_ADCSequenceDataGet(ADC0_BASE, 3, &val);
+  return val;
+}
+
+
 int main()
 {
   uint8_t status;
@@ -558,8 +589,12 @@ int main()
   serial_output_hexbyte(status);
   serial_output_str("\r\n");
   serial_output_str("Done!\r\n");
+  config_adc();
+  serial_output_str("ADC config done\r\n");
 
   for (;;)
   {
+    println_uint32(read_adc());
+    ROM_SysCtlDelay(MCU_HZ/3/2);
   }
 }
