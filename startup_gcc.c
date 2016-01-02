@@ -36,6 +36,7 @@ static void FaultISR(void);
 static void IntDefaultHandler(void);
 
 extern void SysTickHandler(void);
+extern void ADC1Seq3Handler(void);
 
 
 //*****************************************************************************
@@ -129,7 +130,7 @@ void (* const g_pfnVectors[])(void) =
     IntDefaultHandler,                      // ADC1 Sequence 0
     IntDefaultHandler,                      // ADC1 Sequence 1
     IntDefaultHandler,                      // ADC1 Sequence 2
-    IntDefaultHandler,                      // ADC1 Sequence 3
+    ADC1Seq3Handler,                        // ADC1 Sequence 3
     IntDefaultHandler,                      // I2S0
     IntDefaultHandler,                      // External Bus Interface 0
     IntDefaultHandler,                      // GPIO Port J

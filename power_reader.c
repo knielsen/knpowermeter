@@ -551,6 +551,34 @@ config_adc_comparator(void)
 }
 
 
+static volatile uint32_t last_blip_millis = 0;
+
+void
+ADC1Seq3Handler(void)
+{
+  uint32_t now = millisecond_counter;
+  unsigned long adc_status;
+  static uint8_t got_blip = 0;
+  static uint32_t last_blip_time;
+
+  adc_status = ROM_ADCIntStatus(ADC1_BASE, 3, true);
+  if (adc_status)
+  {
+    if (ROM_ADCComparatorIntStatus(ADC1_BASE) & (1 << 0))
+    {
+      if (got_blip)
+      {
+        last_blip_millis = now - last_blip_time;
+        last_blip_time = now;
+      }
+      got_blip = 1;
+      ROM_ADCComparatorIntClear(ADC1_BASE, (1 << 0));
+    }
+    ROM_ADCIntClear(ADC1_BASE, 3);
+  }
+}
+
+
 int main()
 {
   uint8_t status;
@@ -597,24 +625,28 @@ int main()
 
   ROM_IntMasterEnable();
   ROM_SysTickIntEnable();
+  ROM_ADCComparatorIntEnable(ADC1_BASE, 3);
+  ROM_ADCIntEnable(ADC1_BASE, 3);
+  ROM_IntEnable(INT_ADC1SS3);
 
   counter = 0;
   for (;;)
   {
-    unsigned long status;
+    uint32_t blip_millis;
 
     ++counter;
     if (counter > 500000)
     {
       counter = 0;
-      println_uint32(read_adc());
+//      println_uint32(read_adc());
     }
 
-    status = ROM_ADCComparatorIntStatus(ADC1_BASE);
-    if (status & (1 << 0))
+    blip_millis = last_blip_millis;
+    if (blip_millis)
     {
-      serial_output_str("HIT: ");
-      println_uint32(millisecond_counter);
+      last_blip_millis = 0;
+      serial_output_str("Blip: ");
+      println_uint32(blip_millis);
       ROM_ADCComparatorIntClear(ADC1_BASE, (1 << 0));
     }
   }
