@@ -469,39 +469,20 @@ nrf_config_rx(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 static void
 setup_systick(void)
 {
-  ROM_SysTickPeriodSet(0xffffff+1);
+  /* Interrupt every millisecond. */
+  ROM_SysTickPeriodSet(MCU_HZ/1000);
   /* Force reload. */
   HWREG(NVIC_ST_CURRENT) = 0;
   ROM_SysTickEnable();
 }
 
 
-static inline uint32_t
-get_time(void)
+static volatile uint32_t millisecond_counter = 0;
+
+void
+SysTickHandler(void)
 {
-  return HWREG(NVIC_ST_CURRENT);
-}
-
-
-static inline uint32_t
-calc_time_from_val(uint32_t start, uint32_t stop)
-{
-  return (start - stop) & 0xffffff;
-}
-
-
-static inline uint32_t
-calc_time(uint32_t start)
-{
-  uint32_t stop = HWREG(NVIC_ST_CURRENT);
-  return calc_time_from_val(start, stop);
-}
-
-
-static inline uint32_t
-dec_time(uint32_t val, uint32_t inc)
-{
-  return (val - inc) & 0xffffff;
+  ++millisecond_counter;
 }
 
 
@@ -614,6 +595,9 @@ int main()
   config_adc_comparator();
   serial_output_str("ADC config done\r\n");
 
+  ROM_IntMasterEnable();
+  ROM_SysTickIntEnable();
+
   counter = 0;
   for (;;)
   {
@@ -629,7 +613,8 @@ int main()
     status = ROM_ADCComparatorIntStatus(ADC1_BASE);
     if (status & (1 << 0))
     {
-      serial_output_str("HIT!\r\n");
+      serial_output_str("HIT: ");
+      println_uint32(millisecond_counter);
       ROM_ADCComparatorIntClear(ADC1_BASE, (1 << 0));
     }
   }
