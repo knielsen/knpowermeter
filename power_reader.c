@@ -523,9 +523,9 @@ nrf_get_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 
 /* ADC */
 static void
-config_adc(void)
+config_adc_single(void)
 {
-  /* Enable ADC on PD2 (AIN5). */
+  /* Enable ADC0 on PD2 (AIN5). */
   ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
   ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
   ROM_GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
@@ -535,6 +535,7 @@ config_adc(void)
   ROM_ADCSequenceEnable(ADC0_BASE, 3);
   ROM_ADCIntClear(ADC0_BASE, 3);
 }
+
 
 static unsigned long
 read_adc(void)
@@ -550,10 +551,30 @@ read_adc(void)
 }
 
 
+static void
+config_adc_comparator(void)
+{
+  /* Enable ADC1 on PD2 (AIN5). */
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
+  ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
+  ROM_GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
+  ROM_ADCComparatorConfigure(ADC1_BASE, 0,
+                             ADC_COMP_TRIG_NONE | ADC_COMP_INT_HIGH_HONCE);
+  ROM_ADCComparatorRegionSet(ADC1_BASE, 0, 30, 420);
+  ROM_ADCComparatorReset(ADC1_BASE, 0, 1, 1);
+  ROM_ADCSequenceConfigure(ADC1_BASE, 3, ADC_TRIGGER_ALWAYS, 0);
+  ROM_ADCSequenceStepConfigure(ADC1_BASE, 3, 0,
+                               ADC_CTL_CH5 | ADC_CTL_CMP0 | ADC_CTL_END);
+  ROM_ADCSequenceEnable(ADC1_BASE, 3);
+  ROM_ADCIntClear(ADC1_BASE, 3);
+}
+
+
 int main()
 {
   uint8_t status;
   uint8_t val;
+  uint32_t counter;
 
   /* Use the full 80MHz system clock. */
   ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL |
@@ -589,12 +610,27 @@ int main()
   serial_output_hexbyte(status);
   serial_output_str("\r\n");
   serial_output_str("Done!\r\n");
-  config_adc();
+  config_adc_single();
+  config_adc_comparator();
   serial_output_str("ADC config done\r\n");
 
+  counter = 0;
   for (;;)
   {
-    println_uint32(read_adc());
-    ROM_SysCtlDelay(MCU_HZ/3/2);
+    unsigned long status;
+
+    ++counter;
+    if (counter > 500000)
+    {
+      counter = 0;
+      println_uint32(read_adc());
+    }
+
+    status = ROM_ADCComparatorIntStatus(ADC1_BASE);
+    if (status & (1 << 0))
+    {
+      serial_output_str("HIT!\r\n");
+      ROM_ADCComparatorIntClear(ADC1_BASE, (1 << 0));
+    }
   }
 }
