@@ -29,6 +29,7 @@ LIBS:opto
 LIBS:atmel
 LIBS:contrib
 LIBS:valves
+LIBS:pcb_photoled-cache
 EELAYER 25 0
 EELAYER END
 $Descr A4 11693 8268
@@ -127,7 +128,7 @@ Connection ~ 2750 2350
 Wire Wire Line
 	3550 2450 3300 2450
 Wire Wire Line
-	3300 2450 3300 3200
+	3300 2450 3300 3300
 Connection ~ 3300 3200
 Wire Wire Line
 	3550 2550 3550 2850
@@ -159,4 +160,28 @@ F 3 "" H 4000 3200 50  0000 C CNN
 	1    4000 3200
 	1    0    0    -1  
 $EndComp
+$Comp
+L C_Small C1
+U 1 1 568801DA
+P 3300 3400
+F 0 "C1" H 3392 3446 50  0000 L CNN
+F 1 "4.7nF" H 3392 3354 50  0000 L CNN
+F 2 "Capacitors_SMD:C_0805_HandSoldering" H 3300 3400 50  0001 C CNN
+F 3 "" H 3300 3400 50  0000 C CNN
+	1    3300 3400
+	1    0    0    -1  
+$EndComp
+$Comp
+L GND #PWR05
+U 1 1 5688028F
+P 3300 3600
+F 0 "#PWR05" H 3300 3350 50  0001 C CNN
+F 1 "GND" H 3308 3426 50  0000 C CNN
+F 2 "" H 3300 3600 50  0000 C CNN
+F 3 "" H 3300 3600 50  0000 C CNN
+	1    3300 3600
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	3300 3600 3300 3500
 $EndSCHEMATC
