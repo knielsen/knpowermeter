@@ -23,6 +23,8 @@
 #include "nrf24l01p.h"
 
 
+//#define DEBUG_OUTPUT 1
+
 /*
   nRF24L01 pinout:
 
@@ -583,8 +585,10 @@ int main()
 {
   uint8_t status;
   uint8_t val;
+#ifdef DEBUG_OUTPUT
   uint32_t counter;
   uint32_t min_adc, max_adc, sum_adc;
+#endif
 
   /* Use the full 80MHz system clock. */
   ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL |
@@ -630,13 +634,16 @@ int main()
   ROM_ADCIntEnable(ADC1_BASE, 3);
   ROM_IntEnable(INT_ADC1SS3);
 
+#ifdef DEBUG_OUTPUT
   counter = 0;
   min_adc = 4096;
   max_adc = 0;
   sum_adc = 0;
+#endif
   for (;;)
   {
     uint32_t blip_millis;
+#ifdef DEBUG_OUTPUT
     uint32_t adc;
 
     adc = read_adc();
@@ -661,6 +668,7 @@ int main()
       max_adc = 0;
       sum_adc = 0;
     }
+#endif
 
     blip_millis = last_blip_millis;
     if (blip_millis)
@@ -668,7 +676,6 @@ int main()
       last_blip_millis = 0;
       serial_output_str("Blip: ");
       println_uint32(blip_millis);
-      ROM_ADCComparatorIntClear(ADC1_BASE, (1 << 0));
     }
   }
 }
