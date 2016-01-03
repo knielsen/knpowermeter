@@ -50,7 +50,7 @@ U 1 1 568146E0
 P 2750 2750
 F 0 "R1" H 2958 2796 50  0000 L CNN
 F 1 "Photores" H 2958 2704 50  0000 L CNN
-F 2 "Diodes_ThroughHole:Diode_TO-220_Vertical" V 2680 2750 50  0001 C CNN
+F 2 "knielsenlib:VBPW34" V 2680 2750 50  0001 C CNN
 F 3 "" H 2750 2750 50  0000 C CNN
 	1    2750 2750
 	1    0    0    -1  

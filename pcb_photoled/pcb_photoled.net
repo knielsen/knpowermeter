@@ -1,7 +1,7 @@
 (export (version D)
   (design
     (source /home/knielsen/devel/knpowermeter/pcb_photoled/pcb_photoled.sch)
-    (date "Sat 02 Jan 2016 18:05:48 CET")
+    (date "Sat 02 Jan 2016 22:25:38 CET")
     (tool "Eeschema (2015-12-18 BZR 6383, Git 02d9bbb)-product")
     (sheet (number 1) (name /) (tstamps /)
       (title_block
@@ -17,7 +17,7 @@
   (components
     (comp (ref R1)
       (value Photores)
-      (footprint Diodes_ThroughHole:Diode_TO-220_Vertical)
+      (footprint knielsenlib:VBPW34)
       (libsource (lib device) (part Photores))
       (sheetpath (names /) (tstamps /))
       (tstamp 568146E0))
@@ -96,10 +96,10 @@
         (pin (num 1) (name ~) (type passive))
         (pin (num 2) (name ~) (type passive)))))
   (libraries
-    (library (logical device)
-      (uri /kvm/kicad/share/kicad/library/device.lib))
     (library (logical conn)
-      (uri /kvm/kicad/share/kicad/library/conn.lib)))
+      (uri /kvm/kicad/share/kicad/library/conn.lib))
+    (library (logical device)
+      (uri /kvm/kicad/share/kicad/library/device.lib)))
   (nets
     (net (code 1) (name GND)
       (node (ref P1) (pin 3))
