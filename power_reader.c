@@ -541,7 +541,7 @@ config_adc_comparator(void)
   ROM_GPIOPinTypeADC(GPIO_PORTD_BASE, GPIO_PIN_2);
   ROM_ADCComparatorConfigure(ADC1_BASE, 0,
                              ADC_COMP_TRIG_NONE | ADC_COMP_INT_HIGH_HONCE);
-  ROM_ADCComparatorRegionSet(ADC1_BASE, 0, 30, 420);
+  ROM_ADCComparatorRegionSet(ADC1_BASE, 0, 120, 250);
   ROM_ADCComparatorReset(ADC1_BASE, 0, 1, 1);
   ROM_ADCSequenceConfigure(ADC1_BASE, 3, ADC_TRIGGER_ALWAYS, 0);
   ROM_ADCSequenceStepConfigure(ADC1_BASE, 3, 0,
@@ -584,6 +584,7 @@ int main()
   uint8_t status;
   uint8_t val;
   uint32_t counter;
+  uint32_t min_adc, max_adc, sum_adc;
 
   /* Use the full 80MHz system clock. */
   ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL |
@@ -630,15 +631,35 @@ int main()
   ROM_IntEnable(INT_ADC1SS3);
 
   counter = 0;
+  min_adc = 4096;
+  max_adc = 0;
+  sum_adc = 0;
   for (;;)
   {
     uint32_t blip_millis;
+    uint32_t adc;
 
+    adc = read_adc();
     ++counter;
-    if (counter > 500000)
+    if (adc < min_adc)
+      min_adc = adc;
+    if (adc > max_adc)
+      max_adc = adc;
+    sum_adc += adc;
+    if (counter >= 50000)
     {
+      serial_output_str("~");
+      println_uint32((sum_adc+counter/2)/counter);
+      serial_output_str(" >");
+      println_uint32(min_adc);
+      serial_output_str(" <");
+      println_uint32(max_adc);
+      serial_output_str(" =");
+      println_uint32(adc);
       counter = 0;
-//      println_uint32(read_adc());
+      min_adc = 4096;
+      max_adc = 0;
+      sum_adc = 0;
     }
 
     blip_millis = last_blip_millis;
