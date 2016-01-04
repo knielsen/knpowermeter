@@ -767,5 +767,9 @@ int main()
 
   for (;;)
   {
+    serial_output_str("Send to usb...");
+    usb_data_put("Hulubulu!!?!\r\n", 14);
+    serial_output_str(" done!\r\n");
+    ROM_SysCtlDelay(MCU_HZ*2/3);
   }
 }
