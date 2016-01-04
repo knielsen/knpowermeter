@@ -488,6 +488,13 @@ config_spi(uint32_t base)
 }
 
 
+static inline uint32_t
+my_gpio_read(unsigned long gpio_base, uint32_t bits)
+{
+  return HWREG(gpio_base + GPIO_O_DATA + (bits << 2));
+}
+
+
 static inline void
 my_gpio_write(unsigned long gpio_base, uint32_t bits, uint32_t val)
 {
@@ -570,20 +577,6 @@ nrf_rx(uint8_t *data, uint32_t len,
   bzero(&sendbuf[1], len);
   ssi_cmd(recvbuf, sendbuf, len+1, ssi_base, csn_base, csn_pin);
   memcpy(data, &recvbuf[1], len);
-}
-
-
-static void
-nrf_tx(uint8_t *data, uint32_t len,
-       uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
-{
-  uint8_t sendbuf[33], recvbuf[33];
-
-  if (len > NRF_PACKET_SIZE)
-    len = NRF_PACKET_SIZE;
-  sendbuf[0] = nRF_W_TX_PAYLOAD;
-  memcpy(&sendbuf[1], data, len);
-  ssi_cmd(recvbuf, sendbuf, len+1, ssi_base, csn_base, csn_pin);
 }
 
 
@@ -718,6 +711,45 @@ nrf_get_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 }
 
 
+static void
+delay_us(uint32_t microseconds)
+{
+  /* This isn't ideal, but it should work for now. */
+  ROM_SysCtlDelay((MCU_HZ/1000000)*microseconds/3);
+}
+
+
+static uint32_t
+num2str(char *buf, uint32_t val)
+{
+  char *p = buf;
+  uint32_t l, d;
+
+  l = 1000000000UL;
+  while (l > val && l > 1)
+    l /= 10;
+
+  do
+  {
+    d = val / l;
+    *p++ = '0' + d;
+    val -= d*l;
+    l /= 10;
+  } while (l > 0);
+
+  *p = '\0';
+  return p - buf;
+}
+
+
+/* Clear the RX_DR (data sent) flag. */
+static void
+nrf_clear_dr_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
+{
+  nrf_write_reg(nRF_STATUS, nRF_RX_DR, ssi_base, csn_base, csn_pin);
+}
+
+
 int main()
 {
   uint8_t status;
@@ -765,11 +797,49 @@ int main()
   /* Small delay to allow USB to get up ... */
   ROM_SysCtlDelay(MCU_HZ/3);
 
+  /* Now take CE high to start receiving blips on the nRF24L01+. */
+  ce_high(NRF_CE_BASE, NRF_CE_PIN);
+  /*
+    nRF24L01+ datasheet says that there must be at least 4 microseconds
+    from a positive edge on CE to CSN being taken low.
+  */
+  delay_us(4);
+
   for (;;)
   {
-    serial_output_str("Send to usb...");
-    usb_data_put("Hulubulu!!?!\r\n", 14);
-    serial_output_str(" done!\r\n");
-    ROM_SysCtlDelay(MCU_HZ*2/3);
+    uint32_t irq;
+
+    irq = my_gpio_read(NRF_IRQ_BASE, NRF_IRQ_PIN);
+    if (irq)
+    {
+      /* Nothing received from the nRF24L01+ yet. */
+      continue;
+    }
+
+    /*
+      First clear the IRQ flag, then pull all received packets.
+      This way, we are sure to see IRQ active again if new packets arrive
+      while we are pulling out old ones (we may get spurious IRQ though).
+    */
+    nrf_clear_dr_status(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+    for (;;)
+    {
+      uint32_t status;
+      uint8_t buf[4];
+      uint32_t millis;
+      char strbuf[20];
+      uint32_t len;
+
+      status = nrf_get_status(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+      if ((status >> 8) & nRF_RX_EMPTY)
+        break;
+      nrf_rx(buf, 4, NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+      memcpy(&millis, buf, 4);
+      len = num2str(strbuf, millis);
+      strbuf[len] = '\n';
+      serial_output_str("Send to usb...");
+      usb_data_put(strbuf, len+1);
+      serial_output_str(" done!\r\n");
+    }
   }
 }

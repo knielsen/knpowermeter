@@ -16,8 +16,8 @@ ARCH_CFLAGS=-mthumb -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -ffunctio
 # LM4F120H5QR corresponds to TM4C1233H6PM. LM4F131H5QR corresponds to TM4C1236H6PM.
 # LM4F121H5QR corresponds to TM4C1232H6PM
 #INC=-I$(SWDIR) -DPART_LM4F120H5QR
-#INC=-I$(SWDIR) -DPART_LM4F131H5QR
-INC=-I$(SWDIR) -DPART_LM4F121H5QR
+INC=-I$(SWDIR) -DPART_LM4F131H5QR
+#INC=-I$(SWDIR) -DPART_LM4F121H5QR
 CFLAGS=-Dgcc -g -O3  -std=c99 -Wall -pedantic $(ARCH_CFLAGS) $(INC)
 LDFLAGS=--entry ResetISR -Wl,--gc-sections
 
