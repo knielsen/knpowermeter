@@ -267,21 +267,6 @@ ssi_cmd(uint8_t *recvbuf, const uint8_t *sendbuf, uint32_t len,
 
 
 static void
-nrf_rx(uint8_t *data, uint32_t len,
-       uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
-{
-  uint8_t sendbuf[33], recvbuf[33];
-
-  if (len > NRF_PACKET_SIZE)
-    len = NRF_PACKET_SIZE;
-  sendbuf[0] = nRF_R_RX_PAYLOAD;
-  memset(&sendbuf[1], 0, len);
-  ssi_cmd(recvbuf, sendbuf, len+1, ssi_base, csn_base, csn_pin);
-  memcpy(data, &recvbuf[1], len);
-}
-
-
-static void
 nrf_tx(uint8_t *data, uint32_t len,
        uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 {
@@ -359,7 +344,7 @@ nrf_read_reg(uint8_t reg, uint8_t *status_ptr,
 }
 
 
-static const uint8_t nrf_addr[3] = { 0xe7, 0x8c, 0x5e };
+static const uint8_t nrf_addr[3] = { 0x39, 0x56, 0x5e };
 
 /*
   Configure nRF24L01+ as Rx or Tx.
@@ -375,89 +360,31 @@ nrf_init_config(uint8_t is_rx, uint32_t channel, uint32_t power,
                   nRF_MASK_MAX_RT|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP,
                   ssi_base, csn_base, csn_pin);
   else
-    nrf_write_reg(nRF_CONFIG, nRF_MASK_RX_DR |
-                  nRF_MASK_MAX_RT|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP,
+    nrf_write_reg(nRF_CONFIG, nRF_MASK_RX_DR|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP,
                   ssi_base, csn_base, csn_pin);
-  /* Disable auto-ack, saving 9 bits/packet. Else 0x3f. */
-  nrf_write_reg(nRF_EN_AA, 0, ssi_base, csn_base, csn_pin);
+  /* Enable auto-ack (0x3f sets enable bit for all 6 data pipes). */
+  nrf_write_reg(nRF_EN_AA, 0x3f, ssi_base, csn_base, csn_pin);
   /* Enable only pipe 0. */
   nrf_write_reg(nRF_EN_RXADDR, nRF_ERX_P0, ssi_base, csn_base, csn_pin);
   /* 3 byte adresses. */
   nrf_write_reg(nRF_SETUP_AW, nRF_AW_3BYTES, ssi_base, csn_base, csn_pin);
-  /* Disable auto retransmit. */
-  nrf_write_reg(nRF_SETUP_RETR, 0, ssi_base, csn_base, csn_pin);
+  /* Enable auto retransmit, up to 15 (max) retransmits, fair pause in-between . */
+  nrf_write_reg(nRF_SETUP_RETR, 15 | (0xb << nRF_ARD_SHIFT),
+                ssi_base, csn_base, csn_pin);
   nrf_write_reg(nRF_RF_CH, channel, ssi_base, csn_base, csn_pin);
-  /* Use 2Mbps, and set transmit power. */
+  /* Use lowest 250kbps speed for best range, and set transmit power. */
   nrf_write_reg(nRF_RF_SETUP, nRF_RF_DR_LOW | power,
                 ssi_base, csn_base, csn_pin);
   nrf_write_reg_n(nRF_RX_ADDR_P0, nrf_addr, 3, ssi_base, csn_base, csn_pin);
   nrf_write_reg_n(nRF_TX_ADDR, nrf_addr, 3, ssi_base, csn_base, csn_pin);
   /* Set payload size for pipe 0. */
-  nrf_write_reg(nRF_RX_PW_P0, NRF_PACKET_SIZE, ssi_base, csn_base, csn_pin);
+  nrf_write_reg(nRF_RX_PW_P0, 4, ssi_base, csn_base, csn_pin);
   /* Disable pipe 1-5. */
   nrf_write_reg(nRF_RX_PW_P1, 0, ssi_base, csn_base, csn_pin);
   /* Disable dynamic payload length. */
   nrf_write_reg(nRF_DYNDP, 0, ssi_base, csn_base, csn_pin);
   /* Allow disabling acks. */
   nrf_write_reg(nRF_FEATURE, nRF_EN_DYN_ACK, ssi_base, csn_base, csn_pin);
-
-  /* Clear out all FIFOs. */
-  nrf_flush_tx(ssi_base, csn_base, csn_pin);
-  nrf_flush_rx(ssi_base, csn_base, csn_pin);
-  /* Clear the IRQ bits in STATUS register. */
-  nrf_write_reg(nRF_STATUS, nRF_RX_DR|nRF_TX_DS|nRF_MAX_RT,
-                ssi_base, csn_base, csn_pin);
-}
-
-
-/*
-  Configure nRF24L01+ as Tx.
-
-  The nRF24L01+ is configured as transmitter, with auto-ack and
-  retransmission enabled.
-*/
-static void
-nrf_config_tx(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
-{
-  nrf_write_reg(nRF_CONFIG, nRF_MASK_RX_DR |
-                  nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP,
-                  ssi_base, csn_base, csn_pin);
-  /* Enable auto-ack. */
-  nrf_write_reg(nRF_EN_AA, nRF_ENAA_P0|nRF_ENAA_P1|nRF_ENAA_P2|
-                           nRF_ENAA_P3|nRF_ENAA_P4|nRF_ENAA_P5,
-                ssi_base, csn_base, csn_pin);
-  /* Enable auto retransmit. */
-  nrf_write_reg(nRF_SETUP_RETR, (1 << nRF_ARD_SHIFT) | 15,
-                ssi_base, csn_base, csn_pin);
-
-  /* Clear out all FIFOs. */
-  nrf_flush_tx(ssi_base, csn_base, csn_pin);
-  nrf_flush_rx(ssi_base, csn_base, csn_pin);
-  /* Clear the IRQ bits in STATUS register. */
-  nrf_write_reg(nRF_STATUS, nRF_RX_DR|nRF_TX_DS|nRF_MAX_RT,
-                ssi_base, csn_base, csn_pin);
-}
-
-
-/*
-  Configure nRF24L01+ as Rx.
-
-  The nRF24L01+ is configured as receiver, with auto-ack and
-  retransmission enabled.
-*/
-static void
-nrf_config_rx(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
-{
-  nrf_write_reg(nRF_CONFIG, nRF_PRIM_RX | nRF_MASK_TX_DS |
-                  nRF_MASK_MAX_RT|nRF_EN_CRC|nRF_CRCO|nRF_PWR_UP,
-                  ssi_base, csn_base, csn_pin);
-  /* Enable auto-ack. */
-  nrf_write_reg(nRF_EN_AA, nRF_ENAA_P0|nRF_ENAA_P1|nRF_ENAA_P2|
-                           nRF_ENAA_P3|nRF_ENAA_P4|nRF_ENAA_P5,
-                ssi_base, csn_base, csn_pin);
-  /* Enable auto retransmit. */
-  nrf_write_reg(nRF_SETUP_RETR, (1 << nRF_ARD_SHIFT) | 15,
-                ssi_base, csn_base, csn_pin);
 
   /* Clear out all FIFOs. */
   nrf_flush_tx(ssi_base, csn_base, csn_pin);
@@ -504,6 +431,14 @@ nrf_get_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
 }
 
 
+/* Clear the TX_DS (data sent) and MAX_RT (max retries exceeded) flags. */
+static void
+nrf_clear_tx_status(uint32_t ssi_base, uint32_t csn_base, uint32_t csn_pin)
+{
+  nrf_write_reg(nRF_STATUS, nRF_TX_DS|nRF_MAX_RT, ssi_base, csn_base, csn_pin);
+}
+
+
 /* ADC */
 static void
 config_adc_single(void)
@@ -520,6 +455,7 @@ config_adc_single(void)
 }
 
 
+ __attribute__ ((unused))
 static unsigned long
 read_adc(void)
 {
@@ -581,6 +517,63 @@ ADC1Seq3Handler(void)
 }
 
 
+static void
+delay_us(uint32_t microseconds)
+{
+  /* This isn't ideal, but it should work for now. */
+  ROM_SysCtlDelay((MCU_HZ/1000000)*microseconds/3);
+}
+
+
+static void
+nrf_send_blip(uint32_t blip)
+{
+  uint8_t buf[4];
+  uint32_t start_millis;
+  static const uint32_t timeout = 1500;
+
+  nrf_clear_tx_status(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+  memcpy(buf, &blip, 4);
+  nrf_tx(buf, 4, NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+  ce_high(NRF_CE_BASE, NRF_CE_PIN);
+  delay_us(10);
+  ce_low(NRF_CE_BASE, NRF_CE_PIN);
+
+  /* Wait for transmit to complete (or fail), with timeout. */
+  start_millis = millisecond_counter;
+  for (;;)
+  {
+    uint32_t status;
+    uint32_t cur_millis;
+
+    cur_millis= millisecond_counter;
+    if ((cur_millis - start_millis) >= timeout)
+    {
+      serial_output_str("Timeout sending blip (nRF24L01+ not responding?)\r\n");
+      break;
+    }
+
+    status = nrf_get_status(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+    if (status & nRF_MAX_RT)
+    {
+      serial_output_str("Max retries exceeded sending blip (master off or out-of-range?)\r\n");
+      nrf_flush_tx(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
+      break;
+    }
+    if (status & nRF_TX_DS)
+    {
+      /* Packet sent and acked successfully. */
+      break;
+    }
+#if 0
+    serial_output_str(" ");
+    serial_output_hexbyte((status>>8)&0xff);
+    serial_output_hexbyte(status&0xff);
+#endif
+  }
+}
+
+
 int main()
 {
   uint8_t status;
@@ -614,7 +607,7 @@ int main()
   ROM_SysCtlDelay(MCU_HZ/3/10);
 
   serial_output_str("Tx: Setting up...\r\n");
-  nrf_init_config(0 /* Tx */, 81, nRF_RF_PWR_0DBM,
+  nrf_init_config(0 /* Tx */, 115, nRF_RF_PWR_0DBM,
                   NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
   serial_output_str("Tx: Read CONFIG=0x");
   val = nrf_read_reg(nRF_CONFIG, &status,
@@ -674,6 +667,7 @@ int main()
     if (blip_millis)
     {
       last_blip_millis = 0;
+      nrf_send_blip(blip_millis);
       serial_output_str("Blip: ");
       println_uint32(blip_millis);
     }
