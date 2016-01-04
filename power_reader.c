@@ -122,7 +122,7 @@ __attribute__ ((unused))
 static void
 led_on(void)
 {
-  GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);
+  ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, GPIO_PIN_7);
 }
 
 
@@ -130,7 +130,7 @@ __attribute__ ((unused))
 static void
 led_off(void)
 {
-  GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);
+  ROM_GPIOPinWrite(GPIO_PORTA_BASE, GPIO_PIN_7, 0);
 }
 
 
@@ -586,6 +586,8 @@ int main()
 {
   uint8_t status;
   uint8_t val;
+  uint8_t led_is_on;
+  uint32_t led_on_millis = 0;
 #ifdef DEBUG_OUTPUT
   uint32_t counter;
   uint32_t min_adc, max_adc, sum_adc;
@@ -641,6 +643,7 @@ int main()
   max_adc = 0;
   sum_adc = 0;
 #endif
+  led_is_on = 0;
   for (;;)
   {
     uint32_t blip_millis;
@@ -675,9 +678,18 @@ int main()
     if (blip_millis)
     {
       last_blip_millis = 0;
+      led_on();
+      led_on_millis = millisecond_counter;
+      led_is_on = 1;
       nrf_send_blip(blip_millis);
       serial_output_str("Blip: ");
       println_uint32(blip_millis);
+    }
+
+    if (led_is_on && (millisecond_counter - led_on_millis) > 50)
+    {
+      led_off();
+      led_is_on = 0;
     }
   }
 }
