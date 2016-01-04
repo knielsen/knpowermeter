@@ -545,12 +545,20 @@ nrf_send_blip(uint32_t blip)
   {
     uint32_t status;
     uint32_t cur_millis;
+    uint32_t irq;
 
     cur_millis= millisecond_counter;
     if ((cur_millis - start_millis) >= timeout)
     {
       serial_output_str("Timeout sending blip (nRF24L01+ not responding?)\r\n");
       break;
+    }
+
+    irq = my_gpio_read(NRF_IRQ_BASE, NRF_IRQ_PIN);
+    if (irq)
+    {
+      /* No signal from the nRF24L01+ yet. */
+      continue;
     }
 
     status = nrf_get_status(NRF_SSI_BASE, NRF_CSN_BASE, NRF_CSN_PIN);
